@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuthStore } from '@/store/auth-store';
 import { collection, query, where, getDocs, doc, setDoc, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuthStore } from '@/store/auth-store';
 import { generateReferralCode } from '@/lib/utils';
 import { AuthPanel } from '@/components/auth/auth-panel';
 import { UserPanel } from '@/components/user/user-panel';
-import { GamePanel } from '@/components/game/game-panel';
+import { GamePanel } from '@/components/games/game-panel';
 import { AdminPanel } from '@/components/admin/admin-panel';
 import { Header } from '@/components/header';
 import { HomePanel } from '@/components/home/home-panel';
 import { ChatBubble } from '@/components/chat/chat-bubble';
 import { MessageNotification } from '@/components/notifications/message-notification';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { X, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type ActivePanel = 'home' | 'user' | 'game' | 'admin' | null;
@@ -147,6 +147,7 @@ function App() {
     odds: number;
     prizePool: number;
   } | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     // Initialize admin account if needed
@@ -170,6 +171,20 @@ function App() {
     };
 
     createAdminIfNotExists();
+  }, []);
+
+  // Handle online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Handle hash changes
@@ -340,6 +355,14 @@ function App() {
           {activePanel === 'admin' && user.isAdmin && <AdminPanel />}
         </div>
       </main>
+
+      {/* Offline Status */}
+      {isOffline && (
+        <div className="fixed bottom-20 left-4 z-50 flex items-center space-x-2 rounded-lg bg-yellow-100 px-4 py-2 text-yellow-800 shadow-lg md:bottom-24">
+          <WifiOff className="h-4 w-4" />
+          <span className="text-sm">Offline mode - Changes will sync when connection is restored</span>
+        </div>
+      )}
 
       {/* Bet Dialog */}
       {selectedBet && (

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { VersusGames } from '@/components/game/versus-games';
+import { VersusGames } from '@/components/games/versus/versus-games';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Dice1 as Dice, Binary as Bingo, Swords, Users, Trophy } from 'lucide-react';
+import { Dice1 as Dice, Binary as Bingo, Swords } from 'lucide-react';
 
 interface Props {
   onBetClick: (gameId: string, teamId: 1 | 2, teamName: string, odds: number, prizePool: number) => void;
@@ -13,20 +13,11 @@ interface GameStatus {
   bingo: boolean;
 }
 
-interface RpsRoom {
-  id: string;
-  hostUsername: string;
-  stake: number;
-  status: string;
-  createdAt: Date;
-}
-
 export function HomePanel({ onBetClick }: Props) {
   const [activeGames, setActiveGames] = useState<GameStatus>({
     lucky2: false,
     bingo: false
   });
-  const [rpsRooms, setRpsRooms] = useState<RpsRoom[]>([]);
 
   useEffect(() => {
     // Listen to Lucky2 game status
@@ -51,25 +42,9 @@ export function HomePanel({ onBetClick }: Props) {
       }
     });
 
-    // Listen to active RPS rooms
-    const rpsQuery = query(
-      collection(db, 'rpsRooms'),
-      where('status', '==', 'waiting')
-    );
-
-    const unsubRps = onSnapshot(rpsQuery, (snapshot) => {
-      const rooms = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt.toDate()
-      })) as RpsRoom[];
-      setRpsRooms(rooms.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
-    });
-
     return () => {
       unsubLucky2();
       unsubBingo();
-      unsubRps();
     };
   }, []);
 
@@ -89,7 +64,7 @@ export function HomePanel({ onBetClick }: Props) {
       <h1 className="text-3xl font-bold">Welcome to Flower Bet</h1>
       
       {/* Quick Access Game Buttons - Only shown when active */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Lucky2 Game Button */}
         {activeGames.lucky2 && (
           <button
@@ -128,49 +103,6 @@ export function HomePanel({ onBetClick }: Props) {
                 <p className="mt-1 text-sm opacity-90">
                   Game is LIVE! Click to play!
                 </p>
-              </div>
-            </div>
-            <div className="absolute right-4 top-4">
-              <span className="flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
-              </span>
-            </div>
-            <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.2),transparent)] opacity-70" />
-          </button>
-        )}
-
-        {/* RPS Rooms */}
-        {rpsRooms.length > 0 && (
-          <button
-            onClick={() => navigateToGame('game')}
-            className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-400 via-pink-400 to-red-400 p-8 text-white shadow-lg transition-all hover:shadow-xl"
-          >
-            <div className="relative z-10 space-y-4">
-              <div className="flex items-center space-x-4">
-                <Users className="h-12 w-12 text-white" />
-                <div>
-                  <h3 className="text-xl font-bold">Active RPS Rooms</h3>
-                  <p className="mt-1 text-sm opacity-90">
-                    {rpsRooms.length} room{rpsRooms.length !== 1 ? 's' : ''} waiting!
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {rpsRooms.slice(0, 2).map(room => (
-                  <div key={room.id} className="flex items-center justify-between rounded-lg bg-white/10 px-3 py-2 backdrop-blur-sm">
-                    <span className="font-medium">{room.hostUsername}</span>
-                    <div className="flex items-center space-x-2">
-                      <Trophy className="h-4 w-4" />
-                      <span>{room.stake} FBT</span>
-                    </div>
-                  </div>
-                ))}
-                {rpsRooms.length > 2 && (
-                  <p className="text-center text-sm">
-                    +{rpsRooms.length - 2} more rooms
-                  </p>
-                )}
               </div>
             </div>
             <div className="absolute right-4 top-4">
