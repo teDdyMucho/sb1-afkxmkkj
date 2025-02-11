@@ -57,7 +57,7 @@ function ReferralSettingsDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] w-[90vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
+        <Dialog.Content className="fixed inset-4 z-50 overflow-y-auto rounded-lg bg-white p-4 shadow-lg md:left-[50%] md:top-[50%] md:h-auto md:w-[90vw] md:max-w-2xl md:-translate-x-1/2 md:-translate-y-1/2 md:p-6">
           <Dialog.Title className="mb-4 text-xl font-semibold">
             Referral System Settings
           </Dialog.Title>
@@ -89,7 +89,7 @@ function ReferralSettingsDialog({
             {/* Generation Settings */}
             <div className="space-y-4">
               <h3 className="font-medium">Generation Bonuses</h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3, 4, 5].map((gen) => (
                   <div key={gen} className="rounded-lg border p-4">
                     <div className="mb-3 flex items-center justify-between">
@@ -287,7 +287,7 @@ export function ReferralPanel() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
           <div className="flex items-center justify-between">
             <Users className="h-8 w-8 text-blue-500" />
@@ -323,7 +323,7 @@ export function ReferralPanel() {
       {/* Generation Stats */}
       <div className="rounded-lg bg-white p-6 shadow-md">
         <h3 className="mb-4 text-lg font-semibold">Generation Statistics</h3>
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           {[1, 2, 3, 4, 5].map((gen) => (
             <div
               key={gen}

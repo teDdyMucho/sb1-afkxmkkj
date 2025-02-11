@@ -4,9 +4,7 @@ import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, w
 import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
-import { Trash2, Ban, MessageSquare, Search, DollarSign, Users, Settings } from 'lucide-react';
-import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { Trash2, Ban, MessageSquare, Search } from 'lucide-react';
 
 interface Props {
   setError: (error: string) => void;
@@ -26,140 +24,12 @@ interface User {
   isPaid?: boolean;
 }
 
-interface ReferralSettings {
-  referralBonus: number;
-  maxReferrals: number;
-  enabled: boolean;
-}
-
-function ReferralSettingsDialog({ 
-  open, 
-  onOpenChange,
-  settings,
-  onSave
-}: { 
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  settings: ReferralSettings;
-  onSave: (settings: ReferralSettings) => Promise<void>;
-}) {
-  const [localSettings, setLocalSettings] = useState(settings);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    try {
-      await onSave(localSettings);
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to update settings:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
-          <Dialog.Title className="mb-4 text-xl font-semibold">
-            Referral System Settings
-          </Dialog.Title>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Enable Referral System</span>
-              <button
-                type="button"
-                onClick={() => setLocalSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  localSettings.enabled ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    localSettings.enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Referral Bonus (FBT Points)
-              </label>
-              <input
-                type="number"
-                value={localSettings.referralBonus}
-                onChange={(e) => setLocalSettings(prev => ({ 
-                  ...prev, 
-                  referralBonus: parseInt(e.target.value) || 0 
-                }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                min="0"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Maximum Referrals per User
-              </label>
-              <input
-                type="number"
-                value={localSettings.maxReferrals}
-                onChange={(e) => setLocalSettings(prev => ({ 
-                  ...prev, 
-                  maxReferrals: parseInt(e.target.value) || 0 
-                }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                min="0"
-                required
-              />
-            </div>
-
-            <div className="flex justify-end space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isProcessing}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Saving...' : 'Save Settings'}
-              </Button>
-            </div>
-          </form>
-
-          <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </Dialog.Close>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
-
 export function UsersAdmin({ setError, setMessage }: Props) {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<{ id: string; username: string } | null>(null);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [referralSettings, setReferralSettings] = useState<ReferralSettings>({
-    referralBonus: 50,
-    maxReferrals: 10,
-    enabled: true
-  });
   const [messageDialogState, setMessageDialogState] = useState<{
     open: boolean;
     userId: string;
@@ -181,16 +51,8 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setFilteredUsers(usersList);
     });
 
-    // Listen to referral settings
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'referral'), (doc) => {
-      if (doc.exists()) {
-        setReferralSettings(doc.data() as ReferralSettings);
-      }
-    });
-
     return () => {
       unsubUsers();
-      unsubSettings();
     };
   }, []);
 
@@ -205,16 +67,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setFilteredUsers(filtered);
     }
   }, [searchQuery, users]);
-
-  const updateReferralSettings = async (newSettings: ReferralSettings) => {
-    try {
-      await setDoc(doc(db, 'settings', 'referral'), newSettings);
-      setMessage('Referral settings updated successfully');
-    } catch (err) {
-      setError('Failed to update referral settings');
-      console.error(err);
-    }
-  };
 
   const toggleUserType = async (userId: string, currentIsPaid: boolean) => {
     try {
@@ -374,44 +226,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Referral System Controls */}
-      <div className="rounded-lg bg-white p-6 shadow-md">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Users className="h-6 w-6 text-blue-500" />
-            <h2 className="text-xl font-semibold">Referral System</h2>
-          </div>
-          <Button
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center space-x-2"
-          >
-            <Settings className="h-4 w-4" />
-            <span>Configure</span>
-          </Button>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-lg bg-blue-50 p-4">
-            <p className="text-sm font-medium text-blue-600">Status</p>
-            <p className="mt-1 text-2xl font-bold text-blue-900">
-              {referralSettings.enabled ? 'Active' : 'Disabled'}
-            </p>
-          </div>
-          <div className="rounded-lg bg-green-50 p-4">
-            <p className="text-sm font-medium text-green-600">Referral Bonus</p>
-            <p className="mt-1 text-2xl font-bold text-green-900">
-              {referralSettings.referralBonus} FBT
-            </p>
-          </div>
-          <div className="rounded-lg bg-purple-50 p-4">
-            <p className="text-sm font-medium text-purple-600">Max Referrals</p>
-            <p className="mt-1 text-2xl font-bold text-purple-900">
-              {referralSettings.maxReferrals} users
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Users Management */}
       <div className="rounded-lg bg-white p-6 shadow-md">
         <div className="mb-6 flex items-center justify-between">
@@ -589,13 +403,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
         onMessageSent={() => {
           setMessage('Message sent successfully');
         }}
-      />
-
-      <ReferralSettingsDialog
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-        settings={referralSettings}
-        onSave={updateReferralSettings}
       />
     </div>
   );
