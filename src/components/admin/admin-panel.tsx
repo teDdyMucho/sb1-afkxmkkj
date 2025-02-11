@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { Lucky2Admin } from './games/lucky2-admin';
 import { BingoAdmin } from './games/bingo-admin';
-import { VersusAdmin } from './games/versus-admin';
+import { VersusAdmin } from './games/versus/versus-admin';
 import { UsersAdmin } from './users-admin';
 import { TransactionsAdmin } from './transactions-admin';
 import { ProfitPanel } from './profit-panel';

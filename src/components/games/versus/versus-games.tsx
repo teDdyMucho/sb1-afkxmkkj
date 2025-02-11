@@ -25,6 +25,8 @@ interface VersusGame {
   };
   prizePool: number;
   createdAt: Date;
+  endTime?: string;
+  bettingEnabled?: boolean;
 }
 
 interface UserBet {
@@ -86,16 +88,29 @@ export function VersusGames({ onBetClick }: Props) {
       const newTimeLeft: { [key: string]: string } = {};
       
       games.forEach(game => {
-        const endTime = new Date(game.createdAt.getTime() + (24 * 60 * 60 * 1000)); // 24 hours from creation
+        if (!game.endTime) {
+          newTimeLeft[game.id] = 'No time limit';
+          return;
+        }
+
+        const endTime = new Date(game.endTime);
         const diff = endTime.getTime() - now.getTime();
         
-        if (diff > 0) {
-          const hours = Math.floor(diff / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        if (diff <= 0) {
+          newTimeLeft[game.id] = 'Betting closed';
+          return;
+        }
+
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        if (hours > 0) {
           newTimeLeft[game.id] = `${hours}h ${minutes}m ${seconds}s`;
+        } else if (minutes > 0) {
+          newTimeLeft[game.id] = `${minutes}m ${seconds}s`;
         } else {
-          newTimeLeft[game.id] = 'Ending soon';
+          newTimeLeft[game.id] = `${seconds}s`;
         }
       });
       
@@ -127,6 +142,7 @@ export function VersusGames({ onBetClick }: Props) {
     <div className="grid gap-8 md:grid-cols-2">
       {games.map((game) => {
         const userBet = getUserBetForGame(game.id);
+        const isBettingDisabled = !game.bettingEnabled || timeLeft[game.id] === 'Betting closed';
         
         return (
           <div 
@@ -155,7 +171,11 @@ export function VersusGames({ onBetClick }: Props) {
               {/* Timer Badge */}
               <div className="absolute right-4 top-4 flex items-center space-x-2 rounded-full bg-white/90 px-4 py-2 backdrop-blur-sm">
                 <Timer className="h-4 w-4 text-blue-600" />
-                <span className="font-medium text-blue-600">
+                <span className={`font-medium ${
+                  timeLeft[game.id] === 'Betting closed' 
+                    ? 'text-red-600' 
+                    : 'text-blue-600'
+                }`}>
                   {timeLeft[game.id]}
                 </span>
               </div>
@@ -210,8 +230,9 @@ export function VersusGames({ onBetClick }: Props) {
                         game.prizePool
                       )}
                       className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white transition-all hover:from-blue-700 hover:to-blue-800"
+                      disabled={isBettingDisabled}
                     >
-                      Bet on {game.teams.team1}
+                      {isBettingDisabled ? 'Betting Closed' : `Bet on ${game.teams.team1}`}
                     </Button>
                   )}
                 </div>
@@ -262,8 +283,9 @@ export function VersusGames({ onBetClick }: Props) {
                         game.prizePool
                       )}
                       className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white transition-all hover:from-purple-700 hover:to-purple-800"
+                      disabled={isBettingDisabled}
                     >
-                      Bet on {game.teams.team2}
+                      {isBettingDisabled ? 'Betting Closed' : `Bet on ${game.teams.team2}`}
                     </Button>
                   )}
                 </div>
