@@ -6,6 +6,7 @@ import { VersusAdmin } from './games/versus-admin';
 import { UsersAdmin } from './users-admin';
 import { TransactionsAdmin } from './transactions-admin';
 import { ProfitPanel } from './profit-panel';
+import { ReferralPanel } from './referral-panel';
 import { 
   AlertCircle, 
   CheckCircle2, 
@@ -17,11 +18,10 @@ import {
   TrendingUp,
   DollarSign,
   BarChart3,
-  Clock,
-  Wallet
+  Network
 } from 'lucide-react';
 
-type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'users' | 'transactions';
+type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'users' | 'transactions' | 'referrals';
 
 export function AdminPanel() {
   const { user } = useAuthStore();
@@ -76,6 +76,13 @@ export function AdminPanel() {
       icon: Receipt, 
       color: 'from-red-500 to-rose-500',
       description: 'View and track all transactions'
+    },
+    {
+      id: 'referrals',
+      label: 'Referrals',
+      icon: Network,
+      color: 'from-blue-500 to-purple-500',
+      description: 'Manage referral system and bonuses'
     }
   ] as const;
 
@@ -196,6 +203,9 @@ export function AdminPanel() {
           )}
           {activeSection === 'transactions' && (
             <TransactionsAdmin />
+          )}
+          {activeSection === 'referrals' && (
+            <ReferralPanel />
           )}
         </div>
       </div>

@@ -14,7 +14,8 @@ import {
   writeBatch,
   increment,
   orderBy,
-  limit 
+  limit,
+  setDoc 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Trophy, Timer, Check, X, Plus, Crown } from 'lucide-react';
@@ -61,6 +62,7 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
   const [winningNumbers, setWinningNumbers] = useState({ num1: '', num2: '' });
   const [currentJackpot, setCurrentJackpot] = useState(0);
   const [recentWinners, setRecentWinners] = useState<Winner[]>([]);
+  const [prizeMultiplier, setPrizeMultiplier] = useState(25);
 
   // Initialize Lucky2 round
   useEffect(() => {
@@ -77,9 +79,12 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
             numbers: [],
             totalBets: 0,
             startedAt: null,
-            endedAt: null
+            endedAt: null,
+            prizeMultiplier: 25 // Default multiplier
           });
-          console.log('Lucky2 round initialized successfully');
+        } else {
+          // Load existing multiplier
+          setPrizeMultiplier(roundDoc.data().prizeMultiplier || 25);
         }
       } catch (err) {
         console.error('Failed to initialize Lucky2 round:', err);
@@ -233,6 +238,28 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
     }
   };
 
+  const setPrizeMultiplierValue = async () => {
+    const value = prompt('Enter prize multiplier for matching one number (e.g., 25 for 25x):', prizeMultiplier.toString());
+    if (!value) return;
+
+    const multiplier = parseInt(value);
+    if (isNaN(multiplier) || multiplier < 1) {
+      setError('Please enter a valid multiplier');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'gameRounds', 'lucky2Round'), {
+        prizeMultiplier: multiplier
+      });
+      setPrizeMultiplier(multiplier);
+      setMessage(`Prize multiplier set to ${multiplier}x`);
+    } catch (err) {
+      setError('Failed to update prize multiplier');
+      console.error(err);
+    }
+  };
+
   const publishResults = async () => {
     const num1 = parseInt(winningNumbers.num1);
     const num2 = parseInt(winningNumbers.num2);
@@ -273,7 +300,7 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
             cash: increment(currentJackpot)
           });
         } else if (matches === 1) {
-          winnings = bet.betAmount * 50;
+          winnings = bet.betAmount * prizeMultiplier; // Use the configurable multiplier
           result = 'won FBT';
           
           await updateDoc(doc(db, 'users', bet.userId), {
@@ -349,6 +376,24 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
               <span className="text-sm font-medium text-yellow-900 md:text-base">
                 ₱{currentJackpot.toLocaleString()}
               </span>
+            </div>
+          </div>
+
+          {/* Add Prize Multiplier */}
+          <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 p-3 md:p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Trophy className="h-4 w-4 text-green-600 md:h-5 md:w-5" />
+                <h3 className="text-sm font-medium text-green-900 md:text-base">Prize Multiplier</h3>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={setPrizeMultiplierValue}
+                className="h-6 px-2 py-0"
+              >
+                {prizeMultiplier}x
+              </Button>
             </div>
           </div>
         </div>

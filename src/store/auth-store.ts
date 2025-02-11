@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { generateReferralCode } from '@/lib/utils';
 
@@ -103,7 +103,11 @@ export const useAuthStore = create<AuthState>()(
                   amount,
                   type: 'admin_points_update',
                   description: `Admin ${get().user?.username} ${amount >= 0 ? 'added' : 'deducted'} ${Math.abs(amount)} points`,
-                  timestamp: new Date()
+                  timestamp: new Date(),
+                  balanceAfter: {
+                    points: newPoints,
+                    cash: userDoc.data().cash || 0
+                  }
                 });
               };
 
@@ -125,7 +129,11 @@ export const useAuthStore = create<AuthState>()(
                   amount,
                   type: 'admin_cash_update',
                   description: `Admin ${get().user?.username} ${amount >= 0 ? 'added' : 'deducted'} ${Math.abs(amount)} cash`,
-                  timestamp: new Date()
+                  timestamp: new Date(),
+                  balanceAfter: {
+                    points: userDoc.data().points || 0,
+                    cash: newCash
+                  }
                 });
               };
             }

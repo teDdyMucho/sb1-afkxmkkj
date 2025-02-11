@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { collection, query, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
-import { Trash2, Ban, MessageSquare, Search } from 'lucide-react';
+import { Trash2, Ban, MessageSquare, Search, DollarSign, Users, Settings } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { X } from 'lucide-react';
 
 interface Props {
   setError: (error: string) => void;
@@ -21,24 +23,143 @@ interface User {
   approved: boolean;
   disabled?: boolean;
   gcashNumber?: string;
+  isPaid?: boolean;
 }
 
-interface Request {
-  id: string;
-  type: 'withdrawal' | 'loan';
-  amount: number;
-  status: 'pending' | 'approved' | 'declined';
-  timestamp: Date;
-  gcashNumber?: string;
+interface ReferralSettings {
+  referralBonus: number;
+  maxReferrals: number;
+  enabled: boolean;
+}
+
+function ReferralSettingsDialog({ 
+  open, 
+  onOpenChange,
+  settings,
+  onSave
+}: { 
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  settings: ReferralSettings;
+  onSave: (settings: ReferralSettings) => Promise<void>;
+}) {
+  const [localSettings, setLocalSettings] = useState(settings);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    try {
+      await onSave(localSettings);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to update settings:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+        <Dialog.Content className="fixed left-[50%] top-[50%] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
+          <Dialog.Title className="mb-4 text-xl font-semibold">
+            Referral System Settings
+          </Dialog.Title>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Enable Referral System</span>
+              <button
+                type="button"
+                onClick={() => setLocalSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  localSettings.enabled ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    localSettings.enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Referral Bonus (FBT Points)
+              </label>
+              <input
+                type="number"
+                value={localSettings.referralBonus}
+                onChange={(e) => setLocalSettings(prev => ({ 
+                  ...prev, 
+                  referralBonus: parseInt(e.target.value) || 0 
+                }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                min="0"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Maximum Referrals per User
+              </label>
+              <input
+                type="number"
+                value={localSettings.maxReferrals}
+                onChange={(e) => setLocalSettings(prev => ({ 
+                  ...prev, 
+                  maxReferrals: parseInt(e.target.value) || 0 
+                }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                min="0"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Saving...' : 'Save Settings'}
+              </Button>
+            </div>
+          </form>
+
+          <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
 }
 
 export function UsersAdmin({ setError, setMessage }: Props) {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [requests, setRequests] = useState<Request[]>([]);
   const [selectedUser, setSelectedUser] = useState<{ id: string; username: string } | null>(null);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [referralSettings, setReferralSettings] = useState<ReferralSettings>({
+    referralBonus: 50,
+    maxReferrals: 10,
+    enabled: true
+  });
   const [messageDialogState, setMessageDialogState] = useState<{
     open: boolean;
     userId: string;
@@ -50,6 +171,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
   });
 
   useEffect(() => {
+    // Listen to users
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersList = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -59,23 +181,16 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setFilteredUsers(usersList);
     });
 
-    const unsubRequests = onSnapshot(
-      query(collection(db, 'requests')),
-      (snapshot) => {
-        const requestsList = snapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp.toDate()
-          }))
-          .filter(req => req.status === 'pending') as Request[];
-        setRequests(requestsList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+    // Listen to referral settings
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'referral'), (doc) => {
+      if (doc.exists()) {
+        setReferralSettings(doc.data() as ReferralSettings);
       }
-    );
+    });
 
     return () => {
       unsubUsers();
-      unsubRequests();
+      unsubSettings();
     };
   }, []);
 
@@ -90,6 +205,28 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setFilteredUsers(filtered);
     }
   }, [searchQuery, users]);
+
+  const updateReferralSettings = async (newSettings: ReferralSettings) => {
+    try {
+      await setDoc(doc(db, 'settings', 'referral'), newSettings);
+      setMessage('Referral settings updated successfully');
+    } catch (err) {
+      setError('Failed to update referral settings');
+      console.error(err);
+    }
+  };
+
+  const toggleUserType = async (userId: string, currentIsPaid: boolean) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        isPaid: !currentIsPaid
+      });
+      setMessage(`User type updated to ${!currentIsPaid ? 'Paid' : 'Free'}`);
+    } catch (err) {
+      setError('Failed to update user type');
+      console.error(err);
+    }
+  };
 
   const approveUser = async (userId: string) => {
     try {
@@ -202,12 +339,10 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       const currentAmount = userData[type] || 0;
       const difference = amount - currentAmount;
 
-      // Use increment to update the balance
       await updateDoc(userRef, {
         [type]: increment(difference)
       });
 
-      // Add transaction record
       await addDoc(collection(db, 'transactions'), {
         userId,
         username: userData.username,
@@ -220,53 +355,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setMessage(`User ${type} updated successfully`);
     } catch (err) {
       setError(`Failed to update user ${type}`);
-      console.error(err);
-    }
-  };
-
-  const handleRequest = async (request: Request, approve: boolean) => {
-    try {
-      await updateDoc(doc(db, 'requests', request.id), {
-        status: approve ? 'approved' : 'declined'
-      });
-
-      if (approve) {
-        if (request.type === 'loan') {
-          const userRef = doc(db, 'users', request.userId);
-          // Use increment for points update
-          await updateDoc(userRef, {
-            points: increment(request.amount)
-          });
-
-          await addDoc(collection(db, 'transactions'), {
-            userId: request.userId,
-            username: request.username,
-            amount: request.amount,
-            type: 'loan',
-            description: 'FBT loan approved',
-            timestamp: new Date()
-          });
-        }
-      } else if (request.type === 'withdrawal') {
-        const userRef = doc(db, 'users', request.userId);
-        // Use increment for cash update
-        await updateDoc(userRef, {
-          cash: increment(request.amount)
-        });
-
-        await addDoc(collection(db, 'transactions'), {
-          userId: request.userId,
-          username: request.username,
-          amount: request.amount,
-          type: 'withdrawal',
-          description: 'Withdrawal request declined - funds returned',
-          timestamp: new Date()
-        });
-      }
-
-      setMessage(`Request ${approve ? 'approved' : 'declined'} successfully`);
-    } catch (err) {
-      setError(`Failed to ${approve ? 'approve' : 'decline'} request`);
       console.error(err);
     }
   };
@@ -286,83 +374,45 @@ export function UsersAdmin({ setError, setMessage }: Props) {
 
   return (
     <div className="space-y-6">
-      {requests.length > 0 && (
-        <div className="rounded-lg bg-white p-6 shadow-md">
-          <h2 className="mb-4 text-xl font-semibold">Pending Requests</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    GCash Number
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {requests.map((request) => {
-                  const user = users.find(u => u.username === request.username);
-                  const gcashNumber = request.gcashNumber || user?.gcashNumber;
-                  
-                  return (
-                    <tr key={request.id}>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {request.timestamp.toLocaleString()}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {request.username}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {request.type === 'withdrawal' ? 'Cash Withdrawal' : 'FBT Loan'}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {request.amount} {request.type === 'withdrawal' ? 'Cash' : 'FBT'}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {gcashNumber || 'Not provided'}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className="flex space-x-2">
-                          <Button
-                            onClick={() => handleRequest(request, true)}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            disabled={request.type === 'withdrawal' && !gcashNumber}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            onClick={() => handleRequest(request, false)}
-                            size="sm"
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Decline
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* Referral System Controls */}
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Users className="h-6 w-6 text-blue-500" />
+            <h2 className="text-xl font-semibold">Referral System</h2>
+          </div>
+          <Button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center space-x-2"
+          >
+            <Settings className="h-4 w-4" />
+            <span>Configure</span>
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg bg-blue-50 p-4">
+            <p className="text-sm font-medium text-blue-600">Status</p>
+            <p className="mt-1 text-2xl font-bold text-blue-900">
+              {referralSettings.enabled ? 'Active' : 'Disabled'}
+            </p>
+          </div>
+          <div className="rounded-lg bg-green-50 p-4">
+            <p className="text-sm font-medium text-green-600">Referral Bonus</p>
+            <p className="mt-1 text-2xl font-bold text-green-900">
+              {referralSettings.referralBonus} FBT
+            </p>
+          </div>
+          <div className="rounded-lg bg-purple-50 p-4">
+            <p className="text-sm font-medium text-purple-600">Max Referrals</p>
+            <p className="mt-1 text-2xl font-bold text-purple-900">
+              {referralSettings.maxReferrals} users
+            </p>
           </div>
         </div>
-      )}
+      </div>
 
+      {/* Users Management */}
       <div className="rounded-lg bg-white p-6 shadow-md">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Users Management</h2>
@@ -397,6 +447,9 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Actions
@@ -441,6 +494,24 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleUserType(user.id, user.isPaid || false);
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        user.isPaid ? 'bg-blue-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          user.isPaid ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                      <span className="sr-only">{user.isPaid ? 'Paid' : 'Free'}</span>
+                    </button>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex space-x-2" onClick={e => e.stopPropagation()}>
@@ -518,6 +589,13 @@ export function UsersAdmin({ setError, setMessage }: Props) {
         onMessageSent={() => {
           setMessage('Message sent successfully');
         }}
+      />
+
+      <ReferralSettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        settings={referralSettings}
+        onSave={updateReferralSettings}
       />
     </div>
   );

@@ -16,6 +16,10 @@ interface Transaction {
   amount: number;
   description: string;
   username?: string;
+  balanceAfter?: {
+    points: number;
+    cash: number;
+  };
 }
 
 export function TransactionsAdmin() {
@@ -63,6 +67,9 @@ export function TransactionsAdmin() {
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Balance After
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Description
                   </th>
                 </tr>
@@ -102,6 +109,22 @@ export function TransactionsAdmin() {
                         )}
                         {Math.abs(transaction.amount)}
                       </div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      {transaction.balanceAfter ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-1">
+                            <span className="text-blue-600">FBT:</span>
+                            <span>{transaction.balanceAfter.points}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-green-600">Cash:</span>
+                            <span>{transaction.balanceAfter.cash}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="max-w-xs truncate text-sm text-gray-900">

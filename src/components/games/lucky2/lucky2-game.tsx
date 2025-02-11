@@ -26,6 +26,19 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
   const [betAmount, setBetAmount] = useState('10');
   const [currentBet, setCurrentBet] = useState<Bet | null>(null);
   const [previousBets, setPreviousBets] = useState<Bet[]>([]);
+  const [prizeMultiplier, setPrizeMultiplier] = useState(25);
+
+  // Add effect to listen for prize multiplier changes
+  useEffect(() => {
+    const unsubGame = onSnapshot(doc(db, 'gameRounds', 'lucky2Round'), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        setPrizeMultiplier(data.prizeMultiplier || 25);
+      }
+    });
+
+    return () => unsubGame();
+  }, []);
 
   // Add real-time points update
   useEffect(() => {
@@ -199,7 +212,7 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
           <li>Pick 2 different numbers between 1 and 60</li>
           <li>Bet between 10 and 50 points</li>
           <li>Match both numbers: Win the Jackpot Prize in Cash!</li>
-          <li>Match one number: Win 50x your bet in Points</li>
+          <li>Match one number: Win {prizeMultiplier}x your bet in Points</li>
         </ul>
       </div>
 
