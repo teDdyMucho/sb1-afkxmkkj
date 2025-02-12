@@ -2,25 +2,28 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Dice1 as Dice, Binary as Bingo, Swords } from 'lucide-react';
+import { Dice1 as Dice, Binary as Bingo, Swords, Users as Horse } from 'lucide-react';
 import { Lucky2Game } from './lucky2/lucky2-game';
 import { BingoGame } from './bingo/bingo-game';
 import { VersusGames } from './versus/versus-games';
+import { HorseRaceGame } from './horse-race/horse-race-game';
 
 interface GameStatus {
   lucky2: boolean;
   bingo: boolean;
+  horse: boolean;
 }
 
 export function GamePanel() {
   const { user } = useAuthStore();
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     lucky2: false,
-    bingo: false
+    bingo: false,
+    horse: false
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus'>('lucky2');
+  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus' | 'horse'>('lucky2');
 
   useEffect(() => {
     // Listen to Lucky2 game status
@@ -45,9 +48,21 @@ export function GamePanel() {
       }
     });
 
+    // Listen to Horse Race game status
+    const unsubHorse = onSnapshot(doc(db, 'gameRounds', 'horseRound'), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        setGameStatus(prev => ({
+          ...prev,
+          horse: data.status === 'open'
+        }));
+      }
+    });
+
     return () => {
       unsubLucky2();
       unsubBingo();
+      unsubHorse();
     };
   }, []);
 
@@ -74,6 +89,14 @@ export function GamePanel() {
       icon: Swords,
       color: 'from-green-400 via-emerald-400 to-teal-400',
       description: 'Team vs Team betting'
+    },
+    {
+      id: 'horse',
+      name: 'Horse Race',
+      icon: Horse,
+      color: 'from-purple-400 via-pink-400 to-red-400',
+      description: 'Virtual horse racing',
+      status: gameStatus.horse ? 'open' : 'closed'
     }
   ] as const;
 
@@ -99,6 +122,13 @@ export function GamePanel() {
         );
       case 'versus':
         return <VersusGames onBetClick={() => {}} />;
+      case 'horse':
+        return (
+          <HorseRaceGame
+            setError={setError}
+            setMessage={setMessage}
+          />
+        );
       default:
         return null;
     }
@@ -107,7 +137,7 @@ export function GamePanel() {
   return (
     <div className="space-y-6">
       {/* Game Selection Buttons */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         {games.map(({ id, name, icon: Icon, color, description, status }) => (
           <button
             key={id}

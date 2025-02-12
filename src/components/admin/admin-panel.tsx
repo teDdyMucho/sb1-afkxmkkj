@@ -3,25 +3,14 @@ import { useAuthStore } from '@/store/auth-store';
 import { Lucky2Admin } from './games/lucky2-admin';
 import { BingoAdmin } from './games/bingo-admin';
 import { VersusAdmin } from './games/versus/versus-admin';
+import { HorseRaceAdmin } from './games/horse-race/horse-race-admin';
 import { UsersAdmin } from './users-admin';
 import { TransactionsAdmin } from './transactions-admin';
 import { ProfitPanel } from './profit-panel';
 import { ReferralPanel } from './referral-panel';
-import { 
-  AlertCircle, 
-  CheckCircle2, 
-  Dice1, 
-  Binary, 
-  Swords, 
-  Users, 
-  Receipt,
-  TrendingUp,
-  DollarSign,
-  BarChart3,
-  Network
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Dice1, Binary, Swords, Users, Receipt, TrendingUp, DollarSign, BarChart3, Network, Users as Horse } from 'lucide-react';
 
-type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'users' | 'transactions' | 'referrals';
+type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'horse' | 'users' | 'transactions' | 'referrals';
 
 export function AdminPanel() {
   const { user } = useAuthStore();
@@ -64,10 +53,17 @@ export function AdminPanel() {
       description: 'Set up and manage versus matches'
     },
     { 
+      id: 'horse', 
+      label: 'Horse Race', 
+      icon: Horse, 
+      color: 'from-green-500 to-emerald-500',
+      description: 'Manage virtual horse racing'
+    },
+    { 
       id: 'users', 
       label: 'Users', 
       icon: Users, 
-      color: 'from-green-500 to-emerald-500',
+      color: 'from-teal-500 to-cyan-500',
       description: 'Manage user accounts and permissions'
     },
     { 
@@ -88,7 +84,7 @@ export function AdminPanel() {
 
   return (
     <div className="relative space-y-6">
-      {/* Notifications - Now at the top */}
+      {/* Notifications */}
       <div className="sticky top-16 z-50 space-y-2 px-4">
         {error && (
           <div className="flex w-full animate-in fade-in slide-in-from-top items-center rounded-lg bg-red-50 p-4 shadow-lg">
@@ -197,6 +193,9 @@ export function AdminPanel() {
           )}
           {activeSection === 'versus' && (
             <VersusAdmin setError={setError} setMessage={setMessage} />
+          )}
+          {activeSection === 'horse' && (
+            <HorseRaceAdmin setError={setError} setMessage={setMessage} />
           )}
           {activeSection === 'users' && (
             <UsersAdmin setError={setError} setMessage={setMessage} />
