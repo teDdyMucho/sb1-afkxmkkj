@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
-import { Trash2, Ban, MessageSquare, Search } from 'lucide-react';
+import { Trash2, Ban, MessageSquare, Search, DollarSign, CircleDollarSign } from 'lucide-react';
 
 interface Props {
   setError: (error: string) => void;
@@ -24,6 +24,16 @@ interface User {
   isPaid?: boolean;
 }
 
+interface Request {
+  id: string;
+  userId: string;
+  username: string;
+  type: 'withdrawal' | 'loan';
+  amount: number;
+  status: 'pending' | 'approved' | 'declined';
+  timestamp: Date;
+}
+
 export function UsersAdmin({ setError, setMessage }: Props) {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -39,6 +49,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     userId: '',
     username: ''
   });
+  const [requests, setRequests] = useState<Request[]>([]);
 
   useEffect(() => {
     // Listen to users
@@ -51,8 +62,24 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setFilteredUsers(usersList);
     });
 
+    // Listen to requests
+    const requestsQuery = query(
+      collection(db, 'requests'),
+      where('status', '==', 'pending')
+    );
+
+    const unsubRequests = onSnapshot(requestsQuery, (snapshot) => {
+      const requestsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp.toDate()
+      })) as Request[];
+      setRequests(requestsList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+    });
+
     return () => {
       unsubUsers();
+      unsubRequests();
     };
   }, []);
 
@@ -224,8 +251,138 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     });
   };
 
+  const handleRequest = async (request: Request, approve: boolean) => {
+    try {
+      const batch = writeBatch(db);
+      const requestRef = doc(db, 'requests', request.id);
+      const userRef = doc(db, 'users', request.userId);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+
+      const userData = userDoc.data();
+
+      if (approve) {
+        if (request.type === 'withdrawal') {
+          // For withdrawals, cash was already deducted when request was made
+          batch.update(requestRef, {
+            status: 'approved',
+            processedAt: new Date()
+          });
+        } else if (request.type === 'loan') {
+          // For loans, add FBT points
+          batch.update(userRef, {
+            points: increment(request.amount)
+          });
+
+          batch.update(requestRef, {
+            status: 'approved',
+            processedAt: new Date()
+          });
+
+          // Add transaction record
+          const transactionRef = doc(collection(db, 'transactions'));
+          batch.set(transactionRef, {
+            userId: request.userId,
+            username: request.username,
+            amount: request.amount,
+            type: 'loan_approved',
+            description: 'FBT loan approved',
+            timestamp: new Date(),
+            balanceAfter: {
+              points: (userData.points || 0) + request.amount,
+              cash: userData.cash || 0
+            }
+          });
+        }
+      } else {
+        if (request.type === 'withdrawal') {
+          // Return the cash to user's balance
+          batch.update(userRef, {
+            cash: increment(request.amount)
+          });
+
+          // Add transaction record
+          const transactionRef = doc(collection(db, 'transactions'));
+          batch.set(transactionRef, {
+            userId: request.userId,
+            username: request.username,
+            amount: request.amount,
+            type: 'withdrawal_declined',
+            description: 'Cash withdrawal declined - amount returned',
+            timestamp: new Date(),
+            balanceAfter: {
+              points: userData.points || 0,
+              cash: (userData.cash || 0) + request.amount
+            }
+          });
+        }
+
+        batch.update(requestRef, {
+          status: 'declined',
+          processedAt: new Date()
+        });
+      }
+
+      await batch.commit();
+      setMessage(`Request ${approve ? 'approved' : 'declined'} successfully`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process request');
+      console.error(err);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Pending Requests */}
+      {requests.length > 0 && (
+        <div className="rounded-lg bg-white p-6 shadow-md">
+          <h2 className="mb-4 text-xl font-semibold">Pending Requests</h2>
+          <div className="space-y-4">
+            {requests.map((request) => (
+              <div
+                key={request.id}
+                className="flex flex-col items-start justify-between space-y-4 rounded-lg border p-4 md:flex-row md:items-center md:space-y-0"
+              >
+                <div className="flex items-center space-x-4">
+                  {request.type === 'withdrawal' ? (
+                    <DollarSign className="h-8 w-8 text-green-500" />
+                  ) : (
+                    <CircleDollarSign className="h-8 w-8 text-blue-500" />
+                  )}
+                  <div>
+                    <p className="font-medium">{request.username}</p>
+                    <p className="text-sm text-gray-600">
+                      {request.type === 'withdrawal' ? 'Cash Withdrawal' : 'FBT Loan'}: {request.amount} {request.type === 'withdrawal' ? 'Cash' : 'FBT'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {request.timestamp.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex w-full space-x-2 md:w-auto">
+                  <Button
+                    onClick={() => handleRequest(request, true)}
+                    className="flex-1 bg-green-600 hover:bg-green-700 md:flex-none"
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={() => handleRequest(request, false)}
+                    variant="outline"
+                    className="flex-1 border-red-500 text-red-600 hover:bg-red-50 md:flex-none"
+                  >
+                    Decline
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Users Management */}
       <div className="rounded-lg bg-white p-6 shadow-md">
         <div className="mb-6 flex items-center justify-between">
