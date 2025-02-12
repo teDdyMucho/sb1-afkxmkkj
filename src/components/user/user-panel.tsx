@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -69,7 +69,7 @@ interface Transaction {
   };
 }
 
-export function UserPanel() {
+export default function UserPanel() {
   const { user } = useAuthStore();
   const [gcashNumber, setGcashNumber] = useState(user?.gcashNumber || '');
   const [isEditingGcash, setIsEditingGcash] = useState(false);
@@ -621,7 +621,7 @@ export function UserPanel() {
         </div>
 
         {/* Transaction History */}
-        <div className="rounded-lg bg-white p-4 shadow-md md:p-6">
+        <div className="col-span-full overflow-hidden rounded-lg bg-white p-4 shadow-md md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <History className="h-5 w-5 text-gray-500" />
@@ -630,84 +630,86 @@ export function UserPanel() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Time
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Amount
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Balance After
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Description
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {transactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
-                      {transaction.timestamp.toLocaleString()}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                        transaction.amount > 0
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {transaction.type}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className={`text-sm font-medium ${
-                        transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {transaction.amount > 0 ? '+' : ''}{transaction.amount}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm">
-                      {transaction.balanceAfter ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-1">
-                            <span className="text-blue-600">FBT:</span>
-                            <span>{transaction.balanceAfter.points}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <span className="text-green-600">Cash:</span>
-                            <span>{transaction.balanceAfter.cash}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-xs truncate text-sm text-gray-900">
-                        {transaction.description}
-                      </div>
-                    </td>
+            <div className="min-w-[640px]">
+              <table className="w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Time
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Balance After
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Description
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                        {transaction.timestamp.toLocaleString()}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          transaction.amount > 0
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {transaction.type}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span className={`text-sm font-medium ${
+                          transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transaction.amount > 0 ? '+' : ''}{transaction.amount}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm">
+                        {transaction.balanceAfter ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-1">
+                              <span className="text-blue-600">FBT:</span>
+                              <span>{transaction.balanceAfter.points}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span className="text-green-600">Cash:</span>
+                              <span>{transaction.balanceAfter.cash}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="max-w-xs truncate text-sm text-gray-900">
+                          {transaction.description}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            {transactions.length === 0 && (
-              <div className="py-8 text-center text-gray-500">
-                No transactions found
-              </div>
-            )}
+              {transactions.length === 0 && (
+                <div className="py-8 text-center text-gray-500">
+                  No transactions found
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Inbox Panel */}
-        <div className="md:col-span-2">
+        <div className="col-span-full">
           <InboxPanel />
         </div>
       </div>

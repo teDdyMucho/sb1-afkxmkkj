@@ -4,7 +4,7 @@ import { collection, query, where, getDocs, doc, setDoc, runTransaction } from '
 import { db } from '@/lib/firebase';
 import { generateReferralCode } from '@/lib/utils';
 import { AuthPanel } from '@/components/auth/auth-panel';
-import { UserPanel } from '@/components/user/user-panel';
+import UserPanel from '@/components/user/user-panel';
 import { GamePanel } from '@/components/games/game-panel';
 import { AdminPanel } from '@/components/admin/admin-panel';
 import { Header } from '@/components/header';
