@@ -14,12 +14,33 @@ interface GameStatus {
   horse: boolean;
 }
 
+interface GameData {
+  lucky2: {
+    status: 'open' | 'closed';
+    jackpot: number;
+  };
+  bingo: {
+    status: 'open' | 'closed';
+    numbers: string[];
+  };
+}
+
 export function GamePanel() {
   const { user } = useAuthStore();
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     lucky2: false,
     bingo: false,
     horse: false
+  });
+  const [gameData, setGameData] = useState<GameData>({
+    lucky2: {
+      status: 'closed',
+      jackpot: 0
+    },
+    bingo: {
+      status: 'closed',
+      numbers: []
+    }
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -34,6 +55,13 @@ export function GamePanel() {
           ...prev,
           lucky2: data.status === 'open'
         }));
+        setGameData(prev => ({
+          ...prev,
+          lucky2: {
+            status: data.status,
+            jackpot: data.jackpot || 0
+          }
+        }));
       }
     });
 
@@ -44,6 +72,13 @@ export function GamePanel() {
         setGameStatus(prev => ({
           ...prev,
           bingo: data.status === 'open'
+        }));
+        setGameData(prev => ({
+          ...prev,
+          bingo: {
+            status: data.status,
+            numbers: data.numbers || []
+          }
         }));
       }
     });
@@ -105,8 +140,8 @@ export function GamePanel() {
       case 'lucky2':
         return (
           <Lucky2Game
-            gameStatus={gameStatus.lucky2 ? 'open' : 'closed'}
-            jackpot={0}
+            gameStatus={gameData.lucky2.status}
+            jackpot={gameData.lucky2.jackpot}
             setError={setError}
             setMessage={setMessage}
           />
@@ -114,8 +149,8 @@ export function GamePanel() {
       case 'bingo':
         return (
           <BingoGame
-            gameStatus={gameStatus.bingo ? 'open' : 'closed'}
-            bingoNumbers={[]}
+            gameStatus={gameData.bingo.status}
+            bingoNumbers={gameData.bingo.numbers}
             setError={setError}
             setMessage={setMessage}
           />
