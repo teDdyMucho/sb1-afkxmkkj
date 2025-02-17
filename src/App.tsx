@@ -15,7 +15,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-type ActivePanel = 'home' | 'user' | 'game' | 'admin' | null;
+type ActivePanel = 'user' | 'home' | 'game' | 'admin' | null;
 
 interface BetDialogProps {
   open: boolean;
@@ -349,8 +349,8 @@ function App() {
       
       <main className="container mx-auto px-4 py-4 md:py-8">
         <div className="space-y-6 md:space-y-8">
-          {activePanel === 'home' && <HomePanel onBetClick={handleBetClick} />}
-          {activePanel === 'user' && <UserPanel />}
+          {activePanel === 'home' && <UserPanel onBetClick={handleBetClick} />}
+          {activePanel === 'user' && <HomePanel />}
           {activePanel === 'game' && <GamePanel />}
           {activePanel === 'admin' && user.isAdmin && <AdminPanel />}
         </div>
