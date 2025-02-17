@@ -149,7 +149,7 @@ function App() {
   } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  useEffect(() => {
+/*  useEffect(() => {
     // Initialize admin account if needed
     const createAdminIfNotExists = async () => {
       const usersRef = collection(db, "users");
@@ -171,7 +171,7 @@ function App() {
     };
 
     createAdminIfNotExists();
-  }, []);
+  }, []); */
 
   // Handle online/offline status
   useEffect(() => {
