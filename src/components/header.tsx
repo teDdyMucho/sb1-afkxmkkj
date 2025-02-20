@@ -70,7 +70,7 @@ export function Header() {
                     className="flex items-center space-x-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <User className="h-4 w-4" />
-                    <span>User Panel</span>
+                    <span>Game Info</span>
                   </Button>
                   <Button
                     onClick={() => navigateToPanel('game')}
